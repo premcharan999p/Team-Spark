@@ -41,6 +41,9 @@
 
 ---
 
+<img width="1900" height="967" alt="Screenshot 2025-12-12 224303" src="https://github.com/user-attachments/assets/dbeb39f2-49ca-4d95-912e-a2ba5f255fa1" />
+
+
 ## Project Overview
 This project builds a complete **time series forecasting system** for Rossmann stores using historical sales and store-level information.  
 We convert daily sales to **monthly sales per store** and forecast **3 months ahead** (multi-horizon forecasting).  
