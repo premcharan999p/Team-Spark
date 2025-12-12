@@ -1,20 +1,118 @@
-# Team-Spark
-# Rossmann Store Sales Forecasting (Monthly 3-Step Forecasting)
+# Team-Spark  
+# Rossmann Store Sales Forecasting (Monthly 3-Step Multi-Horizon Forecasting)
+
+## Team Contributions
+1) **Rahul Naik (22CS01068):** Data preprocessing + Feature engineering  
+2) **Prem Charan (22CS01062):** Baseline models + XGBoost model training  
+3) **G. Sivaji (22CS01066):** Dimensionality reduction + Forecasting data to embeddings + Optuna fine-tuning + BiLSTM tuned model  
+4) **R. Nikhilesh(22cs01064):** Data understanding, justification of dataset suitability, and explaining why the selected approach is best for the hackathon use case  
+
+---
+
+## Table of Contents
+1. [Project Overview](#project-overview)  
+2. [Problem Statement](#problem-statement)  
+3. [Dataset](#dataset)  
+4. [Output Definition](#output-definition)  
+5. [Exogenous (External) Features Used](#exogenous-external-features-used)  
+6. [Tech Stack](#tech-stack)  
+7. [End-to-End Workflow](#end-to-end-workflow)  
+   - 7.1 [Data Loading + Checks](#71-data-loading--checks)  
+   - 7.2 [Merge Strategy](#72-merge-strategy)  
+   - 7.3 [EDA](#73-eda)  
+   - 7.4 [Missing Value Handling](#74-missing-value-handling)  
+   - 7.5 [Duplicate Check](#75-duplicate-check)  
+   - 7.6 [Outlier Handling](#76-outlier-handling)  
+8. [Forecasting Design](#forecasting-design)  
+   - 8.1 [Daily → Monthly Aggregation](#81-daily--monthly-aggregation)  
+   - 8.2 [Target Creation: y_t+1, y_t+2, y_t+3](#82-target-creation-y_t1-y_t2-y_t3)  
+   - 8.3 [Time Split (No Leakage)](#83-time-split-no-leakage)  
+9. [Models Implemented (All Models)](#models-implemented-all-models)  
+   - 9.1 [Baselines](#91-baselines)  
+   - 9.2 [Linear Regression / Ridge](#92-linear-regression--ridge)  
+   - 9.3 [ARIMA / SARIMA](#93-arima--sarima)  
+   - 9.4 [XGBoost (Final Winner)](#94-xgboost-final-winner)  
+   - 9.5 [BiLSTM Experiments](#95-bilstm-experiments)  
+10. [Feature Processing](#feature-processing)  
+    - 10.1 [Why One-Hot Encoding](#101-why-one-hot-encoding)  
+    - 10.2 [Why TruncatedSVD (Not PCA)](#102-why-truncatedsvd-not-pca)  
+    - 10.3 [Scaling](#103-scaling)  
+11. [Evaluation Metrics](#evaluation-metrics)  
+    - 11.1 [MAPE vs wMAPE](#111-mape-vs-wmape)  
+12. [Hyperparameter Tuning (Optuna)](#hyperparameter-tuning-optuna)  
+13. [Final Results](#final-results)  
+14. [SHAP Explainability](#shap-explainability)  
+15. [Artifacts Saved for Deployment](#artifacts-saved-for-deployment)  
+16. [How to Run (Google Colab)](#how-to-run-google-colab)  
+17. [Deployment (FastAPI)](#deployment-fastapi)  
+18. [Deliverables](#deliverables)  
+
+---
+
+## Project Overview
+This project builds a complete **time series forecasting system** for Rossmann stores using historical sales and store-level information.  
+We convert daily sales to **monthly sales per store** and forecast **3 months ahead** (multi-horizon forecasting).  
+
+We tested multiple models (baselines, linear, ARIMA/SARIMA, XGBoost, BiLSTM) and finalized the best-performing approach.
+
+✅ Final best model: **Optuna-tuned XGBoost** (trained separately for H1/H2/H3)
+
+---
 
 ## Problem Statement
-Build a **monthly time series forecasting system** to predict **future sales** using historical store sales data and store metadata.  
-We forecast **3 months ahead (multi-horizon)**:
-- **H1** = Sales at **t+1**
-- **H2** = Sales at **t+2**
-- **H3** = Sales at **t+3**
+Predict future monthly store sales using:
+- historical store sales trends,
+- store metadata,
+- and external drivers (exogenous signals) like promotions and holidays.
 
-## Dataset Used (Kaggle Rossmann)
-We used only:
-- `train.csv` (daily sales + promo/holiday signals)
-- `store.csv` (store metadata + competition/promo2 info)
+**Why it matters:**  
+Accurate forecasting helps in:
+- inventory planning,
+- staffing decisions,
+- promotion impact estimation,
+- budgeting and revenue planning.
 
-Not used:
+---
+
+## Dataset
+We used the Kaggle Rossmann dataset (only 2 files):
+
+### Used
+- `train.csv`  
+  Daily store sales and signals including:
+  - `Store`, `Date`, `Sales`, `Customers`, `Open`
+  - `Promo`, `StateHoliday`, `SchoolHoliday`, `DayOfWeek`
+
+- `store.csv`  
+  Store metadata and market context including:
+  - `StoreType`, `Assortment`
+  - `CompetitionDistance`, `CompetitionOpenSinceMonth`, `CompetitionOpenSinceYear`
+  - `Promo2`, `Promo2SinceWeek`, `Promo2SinceYear`, `PromoInterval`
+
+### Not Used
 - `test.csv`, `sample_submission.csv`
+
+---
+
+## Output Definition
+For each **store-month** input row, our system returns three predictions:
+
+- **H1 / pred_h1:** forecast monthly sales for next month (**t+1**)  
+- **H2 / pred_h2:** forecast monthly sales for (**t+2**)  
+- **H3 / pred_h3:** forecast monthly sales for (**t+3**)  
+
+**Units:** money amount (monthly aggregated `Sales`).
+
+---
+
+## Exogenous (External) Features Used
+In this project, the primary **exogenous drivers** (external influences) are:
+
+1. **Promo**: short-term promotion flag (0/1)  
+2. **StateHoliday**: holiday type (categorical)  
+3. **DayOfWeek**: weekly seasonality signal (1–7)  
+
+These features help the model learn demand changes beyond sales history alone.
 
 ---
 
@@ -23,130 +121,7 @@ Not used:
 - **Scikit-learn**: OneHotEncoder, TruncatedSVD, StandardScaler
 - **XGBoost**: XGBRegressor
 - **Optuna**: hyperparameter tuning
-- **SHAP**: interpretability
-- **Matplotlib/Seaborn**: EDA plots
-
----
-
-## End-to-End Workflow (What We Did)
-
-### 1) Data Loading + Basic Checks
-- Loaded `train.csv`, `store.csv`
-- Checked shapes, columns, dtypes
-- Checked missing values:
-  - `train.csv`: no missing
-  - `store.csv`: missing in competition and promo2-related columns
-
-### 2) Merge
-- Merged `train` and `store` on `Store` → created `df`
-
-### 3) EDA
-- Viewed random samples
-- Plotted distributions (histograms) for key numeric columns
-- Built correlation matrix (with values)
-
-### 4) Missing Value Handling
-Imputed missing values for:
-- `CompetitionDistance`
-- `CompetitionOpenSinceMonth`, `CompetitionOpenSinceYear`
-- `Promo2SinceWeek`, `Promo2SinceYear`
-- `PromoInterval`
-
-Verified after imputation: **all missing values = 0**
-
-### 5) Duplicate Check
-- Verified **0 duplicate rows**
-
-### 6) Outlier Detection + Handling
-- Detected outliers using **IQR**
-- Capped required numeric columns (winsorization)
-- Verified using **before vs after** distributions + boxplots
-
-### 7) Monthly Forecast Setup (Core)
-- Converted daily → **monthly per store** (`monthly_df`)
-- Created multi-horizon targets using groupby-shift:
-  - `y_t+1`, `y_t+2`, `y_t+3`
-- Used **time-based split** with a cutoff:
-  - Train = past months
-  - Validation = future months  
-(Avoids time leakage)
-
-### 8) Baselines
-Built baselines on monthly series:
-- 1-Month Naive
-- Seasonal Naive (lag-12, fixed)
-- MA-3 rolling mean (fixed)
-
-### 9) Feature Processing for ML
-- **One-Hot Encoding** for categorical features
-- **TruncatedSVD** to reduce high-dimensional sparse OHE features into `svd_0..svd_n`
-- **StandardScaler** on SVD features
-
-### 10) Modeling
-Trained and compared:
-- Linear Regression
-- ARIMA / SARIMA (monthly total sales reference)
-- XGBoost (3 horizons)
-- BiLSTM experiments (performed worse than XGB)
-
-### 11) Hyperparameter Tuning (Optuna)
-- Tuned XGBoost with **Optuna (10 trials)**
-- Objective: minimize **average validation wMAPE** across H1/H2/H3
-- Trained final XGB models using best parameters
-
-### 12) Explainability (SHAP)
-- SHAP summary plots for H1/H2/H3
-- Observed `svd_0` as dominant driver across horizons (SVD components are latent compressed features)
-
-### 13) Deployment Artifacts Saved
-Saved for deployment:
-- Models: `xgb_h1_opt.pkl`, `xgb_h2_opt.pkl`, `xgb_h3_opt.pkl`
-- Preprocessors: `ohe.pkl`, `svd.pkl`, `scaler.pkl`
-- Results: `xgb_optuna_results.json`, `xgb_optuna_results.csv`
-- Zipped outputs for deployment
-
----
-
-## Final Results (Optuna-Tuned XGBoost)
-Validation metrics (lower is better for wMAPE/MAPE; **val_acc = 1 - wMAPE**)
-
-- **H1**:  
-  - wMAPE = **0.0764069779632946**  
-  - val_acc = **0.9235930220367055**  
-  - MAPE = **0.07516675352798571**
-
-- **H2**:  
-  - wMAPE = **0.06990470275142902**  
-  - val_acc = **0.930095297248571**  
-  - MAPE = **0.07483583159168539**
-
-- **H3**:  
-  - wMAPE = **0.06314324152308845**  
-  - val_acc = **0.9368567584769115**  
-  - MAPE = **0.06779279824081506**
-
-- **AVG**:  
-  - avg wMAPE = **0.06981830741260402**  
-  - avg val_acc = **0.930181692587396**  
-  - avg MAPE = **0.07259846112016205**
-
-✅ Best overall model: **Optuna-tuned XGBoost**
-
----
-
-## Deliverables
-- End-to-end notebook (EDA → FE → Modeling → Evaluation → SHAP)
-- Deployment-ready `.pkl` models + preprocessors
-- Results files (CSV/JSON)
-- SHAP plots
-
----
-
-## How to Run (Colab)
-1. Upload/unzip dataset into `/content/rossmann_data/`
-2. Run notebook cells in order:
-   - Load → Merge → EDA → Missing/Outliers → Monthly setup
-   - OHE → SVD → Scaling
-   - Baselines → Linear/XGB → Optuna tuning
-   - SHAP → Save artifacts
-3. Download deployment zip from `/content/rossmann_outputs.zip`
+- **SHAP**: model interpretability
+- **Matplotlib/Seaborn**: EDA visualizations
+- **Joblib**: saving models and preprocessors
+- **FastAPI / Uvicorn**: deployment API
