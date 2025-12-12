@@ -3,7 +3,7 @@
 
 ## Team Contributions
 1) **Rahul Naik (22CS01068):** Data preprocessing + Feature engineering  
-2) **Prem Charan (22CS01062):** Baseline models + XGBoost model training  
+2) **Prem Charan (22CS01062):** Baseline models +  ARIMA  +  SARIMA  +   model training  
 3) **G. Sivaji (22CS01066):** Dimensionality reduction + Forecasting data to embeddings + Optuna fine-tuning + BiLSTM tuned model  
 4) **R. Nikhilesh(22cs01064):** Data understanding, justification of dataset suitability, and explaining why the selected approach is best for the hackathon use case  
 
